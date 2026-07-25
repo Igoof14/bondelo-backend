@@ -1,0 +1,33 @@
+[project]
+name = "bondelo-backend"
+version = "0.1.0"
+description = "HTTP API for the Bondelo Telegram bot"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi[standard]>=0.115",
+    "pydantic-settings>=2.7",
+    "sqlalchemy[asyncio]>=2.0.36",
+    "asyncpg>=0.30",
+    "structlog>=24.4",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.8",
+    "basedpyright>=1.23",
+]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "B", "C4", "SIM", "RUF", "ASYNC"]
+
+[tool.basedpyright]
+pythonVersion = "3.13"
+# `standard` rather than `all`: strict mode drowns in false positives from
+# SQLAlchemy's declarative typing and FastAPI's dependency defaults.
+typeCheckingMode = "standard"
+include = ["app"]
