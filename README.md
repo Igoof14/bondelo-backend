@@ -1,6 +1,5 @@
 # bondelo-backend
 
-HTTP API для Telegram-бота Bondelo. Сам бот живёт в отдельном сервисе и обращается сюда как клиент — здесь нет ни aiogram, ни webhook.
 
 ## Структура
 
@@ -14,21 +13,17 @@ app/
 
 Границы слоёв: `api/v1/*` работает только со схемами и сервисом; `service` не знает про HTTP и бросает ошибки из `core/exceptions.py`; `repository` содержит только запросы. Новая фича добавляется как новый пакет по образцу `portfolio/`.
 
-## База данных
 
-Схема **принадлежит другим сервисам** (бот, импортёры MOEX). Этот сервис только читает: миграций нет, Alembic не подключён, модели в `app/portfolio/models.py` отражают существующие таблицы `bot_users`, `user_bonds`, `moex_bonds`, `moex_bonds_offers`.
-
-Рекомендация владельцу схемы: джойн идёт по `moex_bonds.isin`, индекса на этой колонке нет — с ростом таблицы стоит добавить `CREATE INDEX ON moex_bonds (isin);`.
 
 ## Локальный запуск
 
 ```bash
 uv sync
-cp .env.example .env      # и прописать DATABASE_URL
+cp .env.example .env     
 uv run fastapi dev app/main.py
 ```
 
-Документация — http://localhost:8000/docs (скрыта при `APP_ENV=prod`).
+Документация — http://localhost:8000/docs.
 
 Проверки: `uv run ruff format . && uv run ruff check . && uv run basedpyright`.
 
