@@ -42,3 +42,20 @@ class OfferItem(BaseModel):
 class UpcomingOffersResponse(BaseModel):
     telegram_id: int
     items: list[OfferItem]
+
+
+class MaturityInfo(BaseModel):
+    date: datetime.date
+    days_left: int
+
+
+class MaturityItem(BaseModel):
+    bond: BondInfo
+    maturity: MaturityInfo
+    quantity: Decimal
+    accounts: list[AccountPosition]
+
+
+class UpcomingMaturitiesResponse(BaseModel):
+    telegram_id: int
+    items: list[MaturityItem]
