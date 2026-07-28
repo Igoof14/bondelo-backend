@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.v1 import portfolio, users
+from app.api.v1 import notifications, portfolio, users
 
 api_router = APIRouter()
 # Both routers sit on the /users prefix: users owns the resource itself, portfolio
@@ -9,3 +9,4 @@ api_router = APIRouter()
 # /users/{telegram_id} would swallow the static routes, so it has to go first.
 api_router.include_router(users.router)
 api_router.include_router(portfolio.router)
+api_router.include_router(notifications.router)

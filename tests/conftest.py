@@ -29,7 +29,13 @@ from app.db.session import get_session  # noqa: E402
 from app.main import create_app  # noqa: E402
 
 # Tables wiped between tests: exactly the ones the tests write to.
-_TABLES = ("bot_users",)
+_TABLES = (
+    "bot_users",
+    "offer_alert_settings",
+    "price_alert_settings",
+    "rating_alert_settings",
+    "fns_alert_settings",
+)
 
 
 @pytest.fixture(scope="session", autouse=True)

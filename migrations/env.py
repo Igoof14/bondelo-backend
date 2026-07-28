@@ -20,6 +20,7 @@ from app.core.config import get_settings
 from app.db.base import Base
 
 # Imported for the side effect of registering the models on Base.metadata.
+from app.notifications import models as notification_models  # noqa: F401
 from app.portfolio import models as portfolio_models  # noqa: F401
 from app.users import models as users_models  # noqa: F401
 
@@ -31,7 +32,13 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 
 # Tables whose schema this service manages. Autogenerate ignores everything else.
-OWNED_TABLES = {"bot_users"}
+OWNED_TABLES = {
+    "bot_users",
+    "offer_alert_settings",
+    "price_alert_settings",
+    "rating_alert_settings",
+    "fns_alert_settings",
+}
 
 
 def include_object(

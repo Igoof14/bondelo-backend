@@ -8,9 +8,10 @@ app/
   core/        конфиг, логирование, контекст запроса, доменные ошибки
   db/          declarative Base, async engine и сессии
   api/         HTTP-слой: роутеры и зависимости
-  users/       пользователи бота: единственная таблица, которой владеет сервис
-  portfolio/   вертикальный срез фичи: модели, схемы, запросы, бизнес-логика
-migrations/    Alembic: схема `bot_users`
+  users/          пользователи бота
+  notifications/  настройки уведомлений: оферты, цены, рейтинги, ФНС
+  portfolio/      вертикальный срез фичи: модели, схемы, запросы, бизнес-логика
+migrations/    Alembic: схема таблиц, которыми владеет сервис
 tests/         pytest поверх настоящего Postgres
 ```
 
@@ -44,12 +45,14 @@ uv run pytest
 
 ## Миграции
 
-Схемой таблицы `bot_users` владеет этот сервис — она заводится и меняется только
-через Alembic отсюда. Все остальные таблицы (`user_bonds`, `moex_bonds`,
-`moex_bonds_offers`, а также таблицы бота и мониторингов) принадлежат другим
-сервисам: модели для них read-only, и autogenerate их не видит — в `migrations/env.py`
-стоит белый список `OWNED_TABLES`. **Добавляя свою таблицу, впишите её туда**, иначе
-миграция для неё не сгенерируется.
+Сервис владеет схемой пяти таблиц: `bot_users` и четыре `*_alert_settings`
+(оферты, цены, рейтинги, ФНС). Они заводятся и меняются только через Alembic отсюда.
+
+Всё остальное принадлежит другим сервисам: `user_bonds` (users_bonds), `moex_bonds`
+и `moex_bonds_offers` (импортеры MOEX), `bot_events` (бот), `rating_releases` и
+`fns_blocking_records` (мониторинги). Модели для них read-only или отсутствуют,
+и autogenerate их не видит — в `migrations/env.py` стоит белый список `OWNED_TABLES`.
+**Добавляя свою таблицу, впишите её туда**, иначе миграция для неё не сгенерируется.
 
 ```bash
 uv run alembic revision --autogenerate -m "что меняем"
@@ -85,6 +88,10 @@ DATABASE_URL=<прямое подключение, порт 5432> uv run alembic
 | PUT | `/api/v1/users/{telegram_id}/token` | сохранить токен T-Invest |
 | DELETE | `/api/v1/users/{telegram_id}/token` | отвязать токен |
 | POST | `/api/v1/users/{telegram_id}/deactivate` | пометить пользователя неактивным |
+| GET | `/api/v1/users/{telegram_id}/notifications` | состояние всех четырёх секций уведомлений |
+| POST | `.../notifications/{offers\|prices\|fns}/toggle` | включить/выключить секцию |
+| PATCH | `.../notifications/{offers\|prices}` | изменить настройки секции |
+| POST | `.../notifications/ratings/{agency}/toggle` | подписка на рейтинговое агентство |
 | GET | `/api/v1/users/{telegram_id}/offers?limit=5` | N ближайших оферт по портфелю пользователя |
 | GET | `/api/v1/users/{telegram_id}/maturities?limit=5` | N ближайших погашений по портфелю пользователя |
 
@@ -101,6 +108,35 @@ false}`. Одним `INSERT ... ON CONFLICT`, поэтому параллель�
 
 Токен ходит по сети только внутри приватного Cloud Run и только в теле запроса —
 в URL, query и логи он не попадает.
+
+### Уведомления
+
+`GET /api/v1/users/{telegram_id}/notifications` отдаёт все четыре секции разом — хаб
+уведомлений в боте рисуется одним запросом:
+
+```json
+{
+  "telegram_id": 1825344258,
+  "offers": {"alerts_enabled": true, "first_alert": 14, "second_alert": 5,
+             "notification_time": "10:00:00"},
+  "prices": {"alerts_enabled": false, "drop_warning_threshold": 2.0,
+             "drop_critical_threshold": 5.0, "rise_warning_threshold": 3.0,
+             "rise_critical_threshold": 7.0},
+  "ratings": {"enabled_agencies": ["nra"]},
+  "fns": {"alerts_enabled": false}
+}
+```
+
+- Чтение ничего не создаёт: пользователь, который не трогал настройки, получает
+  дефолты. Отсутствие строки и есть «выключено» — мониторинги фильтруют по
+  `alerts_enabled IS TRUE`.
+- `PATCH` частичный: приходят только изменяемые поля, остальные не трогаются,
+  включая `alerts_enabled`. Пустое тело — просто текущее состояние.
+- `toggle` инвертирует флаг внутри запроса (`NOT alerts_enabled`), поэтому два
+  быстрых нажатия не могут прочитать одно и то же старое значение.
+- Набор рейтинговых агентств бэкенд не валидирует — им владеют бот и скрейперы.
+- `notification_time` — голое `TIME` без таймзоны, бот и `bondelo-reminders`
+  трактуют его как МСК.
 
 ### Портфель
 
