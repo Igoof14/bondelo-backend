@@ -1,7 +1,8 @@
 """Read-only mappings of tables owned by other services.
 
-These tables are created and migrated elsewhere (bot, MOEX importers). This service
-never writes to them and carries no migrations — only the columns it reads are mapped.
+These tables are created and migrated elsewhere (users_bonds, MOEX importers). This
+service never writes to them — only the columns it reads are mapped. The one table it
+does own, `bot_users`, lives in `app/users/models.py`.
 """
 
 import datetime
@@ -11,13 +12,9 @@ from sqlalchemy import BigInteger, Date, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
+from app.users.models import BotUser
 
-
-class BotUser(Base):
-    __tablename__ = "bot_users"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    telegram_id: Mapped[int] = mapped_column(BigInteger, unique=True)
+__all__ = ["BotUser", "MoexBond", "MoexBondOffer", "UserBond"]
 
 
 class UserBond(Base):

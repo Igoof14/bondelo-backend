@@ -10,12 +10,16 @@ dependencies = [
     "sqlalchemy[asyncio]>=2.0.36",
     "asyncpg>=0.30",
     "structlog>=24.4",
+    "alembic>=1.14",
 ]
 
 [dependency-groups]
 dev = [
     "ruff>=0.8",
     "basedpyright>=1.23",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "httpx>=0.28.1",
 ]
 
 [tool.ruff]
@@ -31,3 +35,12 @@ pythonVersion = "3.13"
 # SQLAlchemy's declarative typing and FastAPI's dependency defaults.
 typeCheckingMode = "standard"
 include = ["app"]
+
+[tool.pytest.ini_options]
+# Все тесты асинхронные, отдельный маркер на каждый не нужен.
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+# Проект не ставится пакетом (build-system нет), `app` импортируется из корня —
+# так же, как его видит uvicorn в контейнере.
+pythonpath = ["."]

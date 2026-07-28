@@ -1,14 +1,14 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Path, Query
+from fastapi import APIRouter, Query
 
-from app.api.deps import DbSession
+from app.api.deps import DbSession, TelegramId
 from app.portfolio import service
 from app.portfolio.schemas import UpcomingMaturitiesResponse, UpcomingOffersResponse
 
+# Offers and maturities are a sub-resource of the user, hence the shared prefix;
+# the user resource itself lives in `users.py`.
 router = APIRouter(prefix="/users", tags=["portfolio"])
-
-TelegramId = Annotated[int, Path(description="Telegram user id")]
 
 
 @router.get("/{telegram_id}/offers", response_model=UpcomingOffersResponse)
