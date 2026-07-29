@@ -115,3 +115,64 @@ async def test_active_resolves_as_a_static_route(client: AsyncClient) -> None:
     response = await client.get("/api/v1/users/active")
     assert response.status_code == HTTPStatus.OK
     assert response.json() == {"telegram_ids": [], "count": 0}
+
+
+async def _notifications(client: AsyncClient, telegram_id: int = TELEGRAM_ID) -> dict:
+    response = await client.get(f"/api/v1/users/{telegram_id}/notifications")
+    assert response.status_code == HTTPStatus.OK
+    return response.json()
+
+
+async def test_register_switches_alerts_on_for_tokenless_user(client: AsyncClient) -> None:
+    """Without a token there is no portfolio to match, so the whole market is used.
+
+    That only reaches users who have settings rows at all — hence they are created
+    here, switched on, rather than waiting for the user to find the menu.
+    """
+    await register(client)
+
+    settings = await _notifications(client)
+
+    assert settings["offers"]["alerts_enabled"] is True
+    assert settings["prices"]["alerts_enabled"] is True
+    assert settings["fns"]["alerts_enabled"] is True
+    assert sorted(settings["ratings"]["enabled_agencies"]) == ["nkr", "nra"]
+
+
+async def test_register_leaves_token_holder_settings_alone(client: AsyncClient) -> None:
+    """A token holder already has a portfolio — nothing to opt them into."""
+    await register(client, telegram_id=2)
+    await client.put("/api/v1/users/2/token", json={"token": "t.secret"})
+    # Registration switched prices on; the user then turned them off.
+    await client.post("/api/v1/users/2/notifications/prices/toggle")
+    assert (await _notifications(client, 2))["prices"]["alerts_enabled"] is False
+
+    await register(client, telegram_id=2)
+
+    settings = await _notifications(client, 2)
+    assert settings["prices"]["alerts_enabled"] is False
+
+
+async def test_register_does_not_undo_a_disabled_section(client: AsyncClient) -> None:
+    """Re-running /start must not switch back on what the user turned off."""
+    await register(client)
+    await client.post(f"/api/v1/users/{TELEGRAM_ID}/notifications/fns/toggle")
+
+    assert (await _notifications(client))["fns"]["alerts_enabled"] is False
+
+    await register(client)
+
+    assert (await _notifications(client))["fns"]["alerts_enabled"] is False
+
+
+async def test_register_preserves_tuned_thresholds(client: AsyncClient) -> None:
+    """Defaults are only created when missing — they never overwrite."""
+    await register(client)
+    await client.patch(
+        f"/api/v1/users/{TELEGRAM_ID}/notifications/prices",
+        json={"drop_critical_threshold": 12.5},
+    )
+
+    await register(client)
+
+    assert (await _notifications(client))["prices"]["drop_critical_threshold"] == 12.5

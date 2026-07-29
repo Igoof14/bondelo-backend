@@ -12,6 +12,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.notifications.models import (
+    DEFAULT_AGENCIES,
     FnsAlertSettings,
     OfferAlertSettings,
     PriceAlertSettings,
@@ -21,6 +22,43 @@ from app.notifications.models import (
 # The three tables keyed by telegram_id alone; ratings is keyed by (user, agency)
 # and so has its own functions below.
 type SingleRow = OfferAlertSettings | PriceAlertSettings | FnsAlertSettings
+
+_SINGLE_ROW_MODELS: tuple[type[SingleRow], ...] = (
+    OfferAlertSettings,
+    PriceAlertSettings,
+    FnsAlertSettings,
+)
+
+
+async def ensure_defaults(session: AsyncSession, telegram_id: int) -> None:
+    """Create the user's settings rows, switched on, if they do not exist yet.
+
+    A user without a T-Invest token has no portfolio, so the monitoring services
+    match them against the whole market instead. That only works if they have rows
+    at all — a missing row means "off" everywhere.
+
+    `DO NOTHING` rather than `DO UPDATE`: an existing row is a choice the user made
+    in the UI, and re-running /start must not switch a section back on behind their
+    back. Callers commit.
+    """
+    for model in _SINGLE_ROW_MODELS:
+        await session.execute(
+            insert(model)
+            .values(telegram_id=telegram_id, alerts_enabled=True)
+            .on_conflict_do_nothing(index_elements=[model.telegram_id])
+        )
+
+    await session.execute(
+        insert(RatingAlertSettings)
+        .values(
+            [
+                {"telegram_id": telegram_id, "agency": agency, "alerts_enabled": True}
+                for agency in DEFAULT_AGENCIES
+            ]
+        )
+        # Named constraint rather than columns: the unique index is composite.
+        .on_conflict_do_nothing(constraint="uq_rating_alert_settings_user_agency")
+    )
 
 
 async def get[S: SingleRow](session: AsyncSession, model: type[S], telegram_id: int) -> S | None:

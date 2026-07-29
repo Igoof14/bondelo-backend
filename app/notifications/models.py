@@ -37,6 +37,11 @@ DEFAULT_DROP_CRITICAL = 7.0
 DEFAULT_RISE_WARNING = 6.0
 DEFAULT_RISE_CRITICAL = 8.0
 
+# Agencies a user is subscribed to out of the box. Unlike the column defaults above
+# this is not a schema default: rating settings are one row per agency, so "which
+# agencies" is a decision about which rows to create, not what to put in them.
+DEFAULT_AGENCIES = ("nra", "nkr")
+
 
 class _Timestamps:
     created_at: Mapped[datetime.datetime] = mapped_column(
