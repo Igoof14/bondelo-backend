@@ -5,6 +5,8 @@ from fastapi import APIRouter, Path
 from app.api.deps import DbSession, TelegramId
 from app.notifications import service
 from app.notifications.schemas import (
+    DisclosureSettings,
+    DisclosureSettingsUpdate,
     NotificationSettings,
     OfferSettings,
     OfferSettingsUpdate,
@@ -21,7 +23,7 @@ Agency = Annotated[str, Path(min_length=1, max_length=16, description="Rating ag
 
 @router.get("", response_model=NotificationSettings)
 async def get_settings(session: DbSession, telegram_id: TelegramId) -> NotificationSettings:
-    """State of all four sections at once — one call per notifications hub render.
+    """State of every section at once — one call per notifications hub render.
 
     Never creates rows: an untouched user reads back the defaults.
     """
@@ -60,6 +62,20 @@ async def update_prices(
 async def toggle_fns(session: DbSession, telegram_id: TelegramId) -> ToggleResponse:
     """Flip FNS blocking alerts and return the new state."""
     return await service.toggle_fns(session, telegram_id)
+
+
+@router.post("/disclosure/toggle", response_model=ToggleResponse)
+async def toggle_disclosure(session: DbSession, telegram_id: TelegramId) -> ToggleResponse:
+    """Flip issuer disclosure alerts and return the new state."""
+    return await service.toggle_disclosure(session, telegram_id)
+
+
+@router.patch("/disclosure", response_model=DisclosureSettings)
+async def update_disclosure(
+    session: DbSession, telegram_id: TelegramId, payload: DisclosureSettingsUpdate
+) -> DisclosureSettings:
+    """Change the lowest risk level that still gets delivered. Omitted fields stay put."""
+    return await service.update_disclosure(session, telegram_id, payload)
 
 
 @router.post("/ratings/{agency}/toggle", response_model=ToggleResponse)

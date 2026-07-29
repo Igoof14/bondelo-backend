@@ -1,4 +1,4 @@
-"""Queries over the four settings tables.
+"""Queries over the five settings tables.
 
 Every write is an upsert: the bot's UI lets a user flip a toggle before any row for
 them exists, and a missing row is simply "everything off, defaults everywhere".
@@ -13,20 +13,24 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.notifications.models import (
     DEFAULT_AGENCIES,
+    DisclosureAlertSettings,
     FnsAlertSettings,
     OfferAlertSettings,
     PriceAlertSettings,
     RatingAlertSettings,
 )
 
-# The three tables keyed by telegram_id alone; ratings is keyed by (user, agency)
+# The four tables keyed by telegram_id alone; ratings is keyed by (user, agency)
 # and so has its own functions below.
-type SingleRow = OfferAlertSettings | PriceAlertSettings | FnsAlertSettings
+type SingleRow = (
+    OfferAlertSettings | PriceAlertSettings | FnsAlertSettings | DisclosureAlertSettings
+)
 
 _SINGLE_ROW_MODELS: tuple[type[SingleRow], ...] = (
     OfferAlertSettings,
     PriceAlertSettings,
     FnsAlertSettings,
+    DisclosureAlertSettings,
 )
 
 

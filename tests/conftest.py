@@ -35,6 +35,7 @@ _TABLES = (
     "price_alert_settings",
     "rating_alert_settings",
     "fns_alert_settings",
+    "disclosure_alert_settings",
 )
 
 

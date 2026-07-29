@@ -45,8 +45,9 @@ uv run pytest
 
 ## Миграции
 
-Сервис владеет схемой пяти таблиц: `bot_users` и четыре `*_alert_settings`
-(оферты, цены, рейтинги, ФНС). Они заводятся и меняются только через Alembic отсюда.
+Сервис владеет схемой шести таблиц: `bot_users` и пять `*_alert_settings`
+(оферты, цены, рейтинги, ФНС, раскрытия). Они заводятся и меняются только через
+Alembic отсюда.
 
 Всё остальное принадлежит другим сервисам: `user_bonds` (users_bonds), `moex_bonds`
 и `moex_bonds_offers` (импортеры MOEX), `bot_events` (бот), `rating_releases` и
@@ -111,7 +112,7 @@ false}`. Одним `INSERT ... ON CONFLICT`, поэтому параллель�
 
 ### Уведомления
 
-`GET /api/v1/users/{telegram_id}/notifications` отдаёт все четыре секции разом — хаб
+`GET /api/v1/users/{telegram_id}/notifications` отдаёт все пять секций разом — хаб
 уведомлений в боте рисуется одним запросом:
 
 ```json
@@ -123,7 +124,8 @@ false}`. Одним `INSERT ... ON CONFLICT`, поэтому параллель�
              "drop_critical_threshold": 5.0, "rise_warning_threshold": 3.0,
              "rise_critical_threshold": 7.0},
   "ratings": {"enabled_agencies": ["nra"]},
-  "fns": {"alerts_enabled": false}
+  "fns": {"alerts_enabled": false},
+  "disclosure": {"alerts_enabled": true, "min_risk_level": "low"}
 }
 ```
 
@@ -135,6 +137,9 @@ false}`. Одним `INSERT ... ON CONFLICT`, поэтому параллель�
 - `toggle` инвертирует флаг внутри запроса (`NOT alerts_enabled`), поэтому два
   быстрых нажатия не могут прочитать одно и то же старое значение.
 - Набор рейтинговых агентств бэкенд не валидирует — им владеют бот и скрейперы.
+- `disclosure.min_risk_level` — нижняя граница тяжести раскрытия (`low` | `medium` |
+  `high` | `critical`, по умолчанию `low` = «все события»). Шкалой владеет
+  `disclosure-parsing-worker`, он же и сравнивает уровни при рассылке.
 - `notification_time` — голое `TIME` без таймзоны, бот и `bondelo-reminders`
   трактуют его как МСК.
 

@@ -31,22 +31,29 @@ async def test_untouched_user_reads_defaults(client: AsyncClient) -> None:
         "second_alert": 5,
         "notification_time": "10:00:00",
     }
-    assert body["prices"]["drop_warning_threshold"] == 2.0
+    assert body["prices"]["drop_warning_threshold"] == 4.0
     assert body["ratings"] == {"enabled_agencies": []}
     assert body["fns"] == {"alerts_enabled": False}
+    assert body["disclosure"] == {"alerts_enabled": False, "min_risk_level": "low"}
 
 
 async def test_reading_creates_no_rows(client: AsyncClient, session: AsyncSession) -> None:
     """A hub render must not write: an absent row is what "off" means downstream."""
     await get_settings(client)
 
-    for table in ("offer_alert_settings", "price_alert_settings", "fns_alert_settings"):
+    for table in (
+        "offer_alert_settings",
+        "price_alert_settings",
+        "fns_alert_settings",
+        "disclosure_alert_settings",
+    ):
         count = await session.scalar(text(f"SELECT count(*) FROM {table}"))
         assert count == 0, table
 
 
 @pytest.mark.parametrize(
-    ("path", "section"), [("offers", "offers"), ("prices", "prices"), ("fns", "fns")]
+    ("path", "section"),
+    [("offers", "offers"), ("prices", "prices"), ("fns", "fns"), ("disclosure", "disclosure")],
 )
 async def test_toggle_flips_state(client: AsyncClient, path: str, section: str) -> None:
     assert await toggle(client, path) is True
@@ -82,7 +89,8 @@ async def test_update_prices_thresholds(client: AsyncClient) -> None:
     response = await client.patch(f"{BASE}/prices", json={"drop_critical_threshold": 8.5})
 
     assert response.json()["drop_critical_threshold"] == 8.5
-    assert response.json()["rise_warning_threshold"] == 3.0
+    # Нетронутый порог остаётся дефолтным (models.DEFAULT_RISE_WARNING).
+    assert response.json()["rise_warning_threshold"] == 6.0
 
 
 @pytest.mark.parametrize("value", [0, 100, -1])
@@ -112,6 +120,23 @@ async def test_rating_agencies_toggle_independently(client: AsyncClient) -> None
     assert (await get_settings(client))["ratings"]["enabled_agencies"] == ["nkr"]
 
 
+async def test_update_disclosure_min_risk_level(client: AsyncClient) -> None:
+    await toggle(client, "disclosure")
+
+    response = await client.patch(f"{BASE}/disclosure", json={"min_risk_level": "high"})
+
+    assert response.status_code == HTTPStatus.OK
+    # Raising the floor must not read as switching the section off.
+    assert response.json() == {"alerts_enabled": True, "min_risk_level": "high"}
+
+
+async def test_unknown_risk_level_is_rejected(client: AsyncClient) -> None:
+    """`noise` and `none` never carry an alert, so they are not offered as a choice."""
+    response = await client.patch(f"{BASE}/disclosure", json={"min_risk_level": "none"})
+
+    assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+
 async def test_sections_do_not_interfere(client: AsyncClient) -> None:
     await toggle(client, "prices")
 
@@ -119,3 +144,4 @@ async def test_sections_do_not_interfere(client: AsyncClient) -> None:
     assert body["prices"]["alerts_enabled"] is True
     assert body["offers"]["alerts_enabled"] is False
     assert body["fns"]["alerts_enabled"] is False
+    assert body["disclosure"]["alerts_enabled"] is False

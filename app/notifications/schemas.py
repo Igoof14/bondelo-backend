@@ -1,9 +1,14 @@
 import datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
 from app.notifications import models
+
+# The disclosure severity scale, mirrored from disclosure-parsing-worker's `RiskLevel`.
+# Only the levels that can carry an alert are offered: the two below `low` mean the
+# worker never emits a notification at all, so picking them would be a second "off".
+RiskLevel = Literal["low", "medium", "high", "critical"]
 
 
 def _threshold() -> Any:
@@ -56,6 +61,17 @@ class RatingSettings(BaseModel):
     enabled_agencies: list[str] = Field(default_factory=list)
 
 
+class DisclosureSettings(BaseModel):
+    alerts_enabled: bool = False
+    min_risk_level: RiskLevel = models.DEFAULT_MIN_RISK_LEVEL
+
+
+class DisclosureSettingsUpdate(BaseModel):
+    """Partial update: only the fields present in the body are written."""
+
+    min_risk_level: RiskLevel | None = None
+
+
 class NotificationSettings(BaseModel):
     """Everything the notifications hub needs, in one response."""
 
@@ -64,6 +80,7 @@ class NotificationSettings(BaseModel):
     prices: PriceSettings
     ratings: RatingSettings
     fns: FnsSettings
+    disclosure: DisclosureSettings
 
 
 class ToggleResponse(BaseModel):
