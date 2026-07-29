@@ -17,9 +17,9 @@ engine: AsyncEngine = create_async_engine(
     # Managed Postgres (Neon/Supabase) drops idle connections; without pre-ping the
     # first request after a quiet period fails.
     pool_pre_ping=True,
-    pool_recycle=300,
+    pool_recycle=10000,
     # Cloud Run scales to many instances against a finite connection limit.
-    pool_size=5,
+    pool_size=10,
     max_overflow=0,
 )
 
