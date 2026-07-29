@@ -37,9 +37,9 @@ _SINGLE_ROW_MODELS: tuple[type[SingleRow], ...] = (
 async def ensure_defaults(session: AsyncSession, telegram_id: int) -> None:
     """Create the user's settings rows, switched on, if they do not exist yet.
 
-    A user without a T-Invest token has no portfolio, so the monitoring services
-    match them against the whole market instead. That only works if they have rows
-    at all — a missing row means "off" everywhere.
+    A missing row means "off" everywhere, so a user with no rows reaches none of the
+    monitoring services — whether they are matched through a portfolio (token holders)
+    or against the whole market (everyone else).
 
     `DO NOTHING` rather than `DO UPDATE`: an existing row is a choice the user made
     in the UI, and re-running /start must not switch a section back on behind their

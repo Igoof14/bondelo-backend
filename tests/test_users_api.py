@@ -123,11 +123,11 @@ async def _notifications(client: AsyncClient, telegram_id: int = TELEGRAM_ID) ->
     return response.json()
 
 
-async def test_register_switches_alerts_on_for_tokenless_user(client: AsyncClient) -> None:
-    """Without a token there is no portfolio to match, so the whole market is used.
+async def test_register_switches_every_section_on(client: AsyncClient) -> None:
+    """A missing row means "off", so registration creates them all, switched on.
 
-    That only reaches users who have settings rows at all — hence they are created
-    here, switched on, rather than waiting for the user to find the menu.
+    Otherwise the user would reach no monitoring service until they found the menu
+    on their own.
     """
     await register(client)
 
@@ -136,11 +136,34 @@ async def test_register_switches_alerts_on_for_tokenless_user(client: AsyncClien
     assert settings["offers"]["alerts_enabled"] is True
     assert settings["prices"]["alerts_enabled"] is True
     assert settings["fns"]["alerts_enabled"] is True
+    assert settings["disclosure"]["alerts_enabled"] is True
     assert sorted(settings["ratings"]["enabled_agencies"]) == ["nkr", "nra"]
 
 
-async def test_register_leaves_token_holder_settings_alone(client: AsyncClient) -> None:
-    """A token holder already has a portfolio — nothing to opt them into."""
+async def test_register_creates_settings_for_a_token_holder(
+    client: AsyncClient, session: AsyncSession
+) -> None:
+    """Holders need rows too — their alerts are matched through the portfolio.
+
+    Registration used to skip them, so a user who connected a token back then still
+    has none. The wipe below reproduces exactly that state.
+    """
+    await register(client, telegram_id=2)
+    await client.put("/api/v1/users/2/token", json={"token": "t.secret"})
+    for table in ("offer_alert_settings", "price_alert_settings", "rating_alert_settings"):
+        await session.execute(text(f"DELETE FROM {table} WHERE telegram_id = 2"))
+    await session.commit()
+
+    await register(client, telegram_id=2)
+
+    settings = await _notifications(client, 2)
+    assert settings["offers"]["alerts_enabled"] is True
+    assert settings["prices"]["alerts_enabled"] is True
+    assert sorted(settings["ratings"]["enabled_agencies"]) == ["nkr", "nra"]
+
+
+async def test_register_does_not_undo_a_token_holders_choice(client: AsyncClient) -> None:
+    """Having a token does not make the defaults any pushier."""
     await register(client, telegram_id=2)
     await client.put("/api/v1/users/2/token", json={"token": "t.secret"})
     # Registration switched prices on; the user then turned them off.

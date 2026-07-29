@@ -23,10 +23,11 @@ async def register(session: AsyncSession, payload: RegisterRequest) -> RegisterR
     Idempotent: a repeated /start creates no duplicate, it refreshes activity and
     undoes a previous deactivation.
 
-    A user without a token also gets their notification settings created, switched
-    on: with no portfolio to match against, the monitoring services fall back to the
-    whole market, and that only reaches users who have rows at all. Token holders are
-    left alone — their settings already reflect choices they made.
+    Every user also gets their notification settings created, switched on. A missing
+    row means "off" to the monitoring services, so a user without rows is invisible to
+    them no matter which audience they belong to — token holders are matched through
+    their portfolio, users without one against the whole market. `ensure_defaults` only
+    fills the gaps, so this never overrides a choice made in the UI.
     """
     result = await repository.register(
         session,
@@ -35,9 +36,8 @@ async def register(session: AsyncSession, payload: RegisterRequest) -> RegisterR
         payload.first_name,
         payload.last_name,
     )
-    if not _has_token(result.token):
-        await notifications_repository.ensure_defaults(session, payload.telegram_id)
-        await session.commit()
+    await notifications_repository.ensure_defaults(session, payload.telegram_id)
+    await session.commit()
     return RegisterResponse(
         telegram_id=payload.telegram_id,
         is_new_user=result.is_new_user,
