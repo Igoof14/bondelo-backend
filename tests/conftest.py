@@ -25,6 +25,7 @@ from sqlalchemy.ext.asyncio import (  # noqa: E402
     create_async_engine,
 )
 
+from app.api.deps import get_token_validator  # noqa: E402
 from app.db.session import get_session  # noqa: E402
 from app.main import create_app  # noqa: E402
 
@@ -61,10 +62,19 @@ async def session(engine: AsyncEngine) -> AsyncIterator[AsyncSession]:
         yield session
 
 
+async def _accept_any_token(_token: str) -> None:
+    """Stand-in for the T-Invest check: every token passes, nothing leaves the process."""
+
+
 @pytest.fixture
 async def client(session: AsyncSession) -> AsyncIterator[AsyncClient]:
-    """HTTP client over the ASGI app, wired to the fixture's session."""
+    """HTTP client over the ASGI app, wired to the fixture's session.
+
+    The broker check is stubbed out: these tests are about the API's own behaviour, and
+    their tokens are made up. `tests/test_token_validation.py` exercises the real one.
+    """
     app = create_app()
     app.dependency_overrides[get_session] = lambda: session
+    app.dependency_overrides[get_token_validator] = lambda: _accept_any_token
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         yield client

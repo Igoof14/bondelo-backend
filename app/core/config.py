@@ -19,6 +19,10 @@ class Settings(BaseSettings):
 
     cors_origins: list[str] = Field(default_factory=list)
 
+    # T-Invest REST API — used to check a token is alive before it is stored.
+    tinvest_api_url: str = "https://invest-public-api.tbank.ru/rest"
+    tinvest_timeout_seconds: float = 5.0
+
     @property
     def is_prod(self) -> bool:
         return self.app_env == "prod"

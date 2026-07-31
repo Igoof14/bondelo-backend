@@ -1,6 +1,6 @@
 from fastapi import APIRouter, status
 
-from app.api.deps import DbSession, TelegramId
+from app.api.deps import DbSession, TelegramId, TokenValidator
 from app.users import service
 from app.users.schemas import (
     ActiveUsersResponse,
@@ -39,10 +39,18 @@ async def get_token(session: DbSession, telegram_id: TelegramId) -> TokenRespons
 
 @router.put("/{telegram_id}/token", response_model=TokenStateResponse)
 async def set_token(
-    session: DbSession, telegram_id: TelegramId, payload: TokenRequest
+    session: DbSession,
+    telegram_id: TelegramId,
+    payload: TokenRequest,
+    validate: TokenValidator,
 ) -> TokenStateResponse:
-    """Store the T-Invest token. Validating it is the caller's job."""
-    return await service.set_token(session, telegram_id, payload.token)
+    """Store the T-Invest token, once the broker has confirmed it works.
+
+    The token is checked against `UsersService/GetInfo` first: a token the broker
+    rejects gives 400 `invalid_token`, and a broker we cannot reach gives 503
+    `upstream_unavailable`. Neither case writes anything.
+    """
+    return await service.set_token(session, telegram_id, payload.token, validate)
 
 
 @router.delete("/{telegram_id}/token", status_code=status.HTTP_204_NO_CONTENT)

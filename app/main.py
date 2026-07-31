@@ -1,6 +1,7 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
+import httpx
 import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -20,8 +21,11 @@ log = structlog.get_logger(__name__)
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings: Settings = app.state.settings
     configure_logging(settings)
+    # One client for the whole process, so TLS connections to the broker are reused.
+    app.state.http_client = httpx.AsyncClient(timeout=settings.tinvest_timeout_seconds)
     log.info("app.startup", env=settings.app_env)
     yield
+    await app.state.http_client.aclose()
     await engine.dispose()
     log.info("app.shutdown")
 

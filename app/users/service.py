@@ -2,6 +2,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError
 from app.notifications import repository as notifications_repository
+from app.tinvest.client import TokenValidatorFn
 from app.users import repository
 from app.users.schemas import (
     ActiveUsersResponse,
@@ -52,7 +53,19 @@ async def get_token(session: AsyncSession, telegram_id: int) -> TokenResponse:
     return TokenResponse(token=row.tinvest_token or None)
 
 
-async def set_token(session: AsyncSession, telegram_id: int, token: str) -> TokenStateResponse:
+async def set_token(
+    session: AsyncSession,
+    telegram_id: int,
+    token: str,
+    validate: TokenValidatorFn,
+) -> TokenStateResponse:
+    """Store the token, but only once T-Invest has confirmed it works.
+
+    The check comes before the write, so an unusable token never replaces a working
+    one — and when the broker cannot be reached the write is skipped too: an unverified
+    token in the database would silently break the portfolio sync later.
+    """
+    await validate(token)
     if not await repository.set_token(session, telegram_id, token):
         raise NotFoundError(f"User with telegram_id={telegram_id} not found")
     return TokenStateResponse(has_token=True)

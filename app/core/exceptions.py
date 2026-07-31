@@ -19,6 +19,24 @@ class NotFoundError(AppError):
     code = "not_found"
 
 
+class InvalidTokenError(AppError):
+    """The broker itself rejected the token — retrying will not help.
+
+    400 rather than 422: 422 already carries schema errors (`validation_error`), and the
+    bot has to tell "the field is malformed" from "T-Invest would not accept this".
+    """
+
+    status_code = status.HTTP_400_BAD_REQUEST
+    code = "invalid_token"
+
+
+class UpstreamUnavailableError(AppError):
+    """The broker could not be reached, so the token's state stays unknown."""
+
+    status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+    code = "upstream_unavailable"
+
+
 def _error_response(status_code: int, code: str, detail: str) -> JSONResponse:
     return JSONResponse(status_code=status_code, content={"detail": detail, "code": code})
 

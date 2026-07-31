@@ -11,6 +11,9 @@ dependencies = [
     "asyncpg>=0.30",
     "structlog>=24.4",
     "alembic>=1.14",
+    # Outbound calls to the T-Invest API. It also arrives with fastapi[standard],
+    # but the token validation depends on it directly.
+    "httpx>=0.28.1",
 ]
 
 [dependency-groups]
@@ -19,7 +22,6 @@ dev = [
     "basedpyright>=1.23",
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
-    "httpx>=0.28.1",
 ]
 
 [tool.ruff]

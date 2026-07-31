@@ -86,7 +86,7 @@ DATABASE_URL=<прямое подключение, порт 5432> uv run alembic
 | POST | `/api/v1/users/register` | регистрация пользователя бота (идемпотентно) |
 | GET | `/api/v1/users/active` | telegram_id всех активных пользователей |
 | GET | `/api/v1/users/{telegram_id}/token` | токен T-Invest пользователя |
-| PUT | `/api/v1/users/{telegram_id}/token` | сохранить токен T-Invest |
+| PUT | `/api/v1/users/{telegram_id}/token` | сохранить токен T-Invest (с проверкой у брокера) |
 | DELETE | `/api/v1/users/{telegram_id}/token` | отвязать токен |
 | POST | `/api/v1/users/{telegram_id}/deactivate` | пометить пользователя неактивным |
 | GET | `/api/v1/users/{telegram_id}/notifications` | состояние всех четырёх секций уведомлений |
@@ -109,6 +109,22 @@ false}`. Одним `INSERT ... ON CONFLICT`, поэтому параллель�
 
 Токен ходит по сети только внутри приватного Cloud Run и только в теле запроса —
 в URL, query и логи он не попадает.
+
+`PUT .../token` перед записью проверяет токен у брокера — вызовом
+[`UsersService/GetInfo`](https://developer.tbank.ru/invest/api/users-service-get-info),
+самого дешёвого метода T-Invest API: он не требует ни счёта, ни прав на торговлю, так что
+read-only токену достаточно. Возможные исходы:
+
+| Ответ брокера | Ответ API | Что в БД |
+|---|---|---|
+| `200` | `200 {"has_token": true}` | токен записан |
+| `401`, `403` | `400`, code `invalid_token` | без изменений |
+| `429`, `5xx`, таймаут, любой иной статус | `503`, code `upstream_unavailable` | без изменений |
+
+Проверка идёт **до** записи, поэтому битый токен не затирает рабочий, а недоступность
+брокера не оставляет в БД непроверенный токен (иначе он молча сломал бы синхронизацию
+портфеля позже). Ретраев нет — повтор это дело бота. Адрес и таймаут настраиваются
+через `TINVEST_API_URL` и `TINVEST_TIMEOUT_SECONDS`.
 
 ### Уведомления
 
