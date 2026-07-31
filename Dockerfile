@@ -15,7 +15,9 @@ RUN uv sync --frozen --no-dev
 
 FROM python:3.13-slim
 
-ENV PYTHONUNBUFFERED=1 PATH="/app/.venv/bin:$PATH"
+# SSL_TBANK_VERIFY makes the T-Invest SDK use the Russian Trusted Root CA it ships with;
+# no default trust store has it, so without this every broker call fails the handshake.
+ENV PYTHONUNBUFFERED=1 PATH="/app/.venv/bin:$PATH" SSL_TBANK_VERIFY=true
 RUN useradd --create-home --uid 1000 app
 WORKDIR /app
 

@@ -11,9 +11,11 @@ dependencies = [
     "asyncpg>=0.30",
     "structlog>=24.4",
     "alembic>=1.14",
-    # Outbound calls to the T-Invest API. It also arrives with fastapi[standard],
-    # but the token validation depends on it directly.
+    # Arrives with fastapi[standard] anyway; pinned directly because the tests drive the
+    # app through it.
     "httpx>=0.28.1",
+    # The official T-Invest SDK — see [tool.uv.sources], it is not on PyPI.
+    "t-tech-investments>=1.49.2",
 ]
 
 [dependency-groups]
@@ -46,3 +48,13 @@ testpaths = ["tests"]
 # Проект не ставится пакетом (build-system нет), `app` импортируется из корня —
 # так же, как его видит uvicorn в контейнере.
 pythonpath = ["."]
+
+# T-Bank publishes the SDK on its own GitLab, not on PyPI. `explicit` keeps that index out
+# of the way of every other dependency — only the package named below is looked up there.
+[[tool.uv.index]]
+name = "tbank"
+url = "https://opensource.tbank.ru/api/v4/projects/238/packages/pypi/simple"
+explicit = true
+
+[tool.uv.sources]
+t-tech-investments = { index = "tbank" }

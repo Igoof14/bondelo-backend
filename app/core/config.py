@@ -3,6 +3,7 @@ from typing import Literal
 
 from pydantic import Field, PostgresDsn
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from t_tech.invest.constants import INVEST_GRPC_API
 
 
 class Settings(BaseSettings):
@@ -19,9 +20,15 @@ class Settings(BaseSettings):
 
     cors_origins: list[str] = Field(default_factory=list)
 
-    # T-Invest REST API — used to check a token is alive before it is stored.
-    tinvest_api_url: str = "https://invest-public-api.tbank.ru/rest"
+    # T-Invest gRPC API — used to check a token is alive before it is stored. The default
+    # is the SDK's own production endpoint; override it to reach the sandbox.
+    tinvest_grpc_target: str = INVEST_GRPC_API
     tinvest_timeout_seconds: float = 5.0
+
+    # T-Invest is served under the Russian Trusted Root CA, which is in no default trust
+    # store — without this the TLS handshake fails. The SDK ships that root and reads this
+    # exact variable out of the environment, so `lifespan` puts the value back there.
+    ssl_tbank_verify: bool = True
 
     @property
     def is_prod(self) -> bool:

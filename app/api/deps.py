@@ -14,15 +14,16 @@ TelegramId = Annotated[int, Path(description="Telegram user id")]
 
 
 def get_token_validator(request: Request) -> TokenValidatorFn:
-    """The broker check, bound to the process-wide HTTP client.
+    """The broker check, bound to the configured endpoint and timeout.
 
     A dependency rather than a direct import so tests can swap the network call out
     through `dependency_overrides`.
     """
+    settings = request.app.state.settings
     return partial(
         validate_token,
-        request.app.state.http_client,
-        request.app.state.settings.tinvest_api_url,
+        settings.tinvest_grpc_target,
+        settings.tinvest_timeout_seconds,
     )
 
 

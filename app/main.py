@@ -1,7 +1,7 @@
+import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-import httpx
 import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -21,11 +21,13 @@ log = structlog.get_logger(__name__)
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings: Settings = app.state.settings
     configure_logging(settings)
-    # One client for the whole process, so TLS connections to the broker are reused.
-    app.state.http_client = httpx.AsyncClient(timeout=settings.tinvest_timeout_seconds)
-    log.info("app.startup", env=settings.app_env)
+    # The SDK reads this from the environment when it builds the channel, so the setting
+    # has to travel back out — otherwise a value from `.env` would never reach it.
+    os.environ["SSL_TBANK_VERIFY"] = str(settings.ssl_tbank_verify).lower()
+    # The broker endpoint is logged so a misconfigured deployment is visible at startup —
+    # a wrong target only surfaces later, as an opaque connection failure.
+    log.info("app.startup", env=settings.app_env, tinvest_target=settings.tinvest_grpc_target)
     yield
-    await app.state.http_client.aclose()
     await engine.dispose()
     log.info("app.shutdown")
 
