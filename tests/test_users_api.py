@@ -137,7 +137,7 @@ async def test_register_switches_every_section_on(client: AsyncClient) -> None:
     assert settings["prices"]["alerts_enabled"] is True
     assert settings["fns"]["alerts_enabled"] is True
     assert settings["disclosure"]["alerts_enabled"] is True
-    assert sorted(settings["ratings"]["enabled_agencies"]) == ["nkr", "nra"]
+    assert sorted(settings["ratings"]["enabled_agencies"]) == ["acra", "nkr", "nra", "ra"]
 
 
 async def test_register_creates_settings_for_a_token_holder(
@@ -159,7 +159,7 @@ async def test_register_creates_settings_for_a_token_holder(
     settings = await _notifications(client, 2)
     assert settings["offers"]["alerts_enabled"] is True
     assert settings["prices"]["alerts_enabled"] is True
-    assert sorted(settings["ratings"]["enabled_agencies"]) == ["nkr", "nra"]
+    assert sorted(settings["ratings"]["enabled_agencies"]) == ["acra", "nkr", "nra", "ra"]
 
 
 async def test_register_does_not_undo_a_token_holders_choice(client: AsyncClient) -> None:

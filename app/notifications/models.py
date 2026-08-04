@@ -46,7 +46,7 @@ DEFAULT_MIN_RISK_LEVEL = "low"
 # Agencies a user is subscribed to out of the box. Unlike the column defaults above
 # this is not a schema default: rating settings are one row per agency, so "which
 # agencies" is a decision about which rows to create, not what to put in them.
-DEFAULT_AGENCIES = ("nra", "nkr")
+DEFAULT_AGENCIES = ("nra", "nkr", "acra", "ra")
 
 
 class _Timestamps:
