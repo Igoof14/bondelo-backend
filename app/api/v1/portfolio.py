@@ -1,10 +1,15 @@
+import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Query
 
 from app.api.deps import DbSession, TelegramId
 from app.portfolio import service
-from app.portfolio.schemas import UpcomingMaturitiesResponse, UpcomingOffersResponse
+from app.portfolio.schemas import (
+    CouponPaymentsResponse,
+    UpcomingMaturitiesResponse,
+    UpcomingOffersResponse,
+)
 
 # Offers and maturities are a sub-resource of the user, hence the shared prefix;
 # the user resource itself lives in `users.py`.
@@ -31,3 +36,15 @@ async def upcoming_maturities(
 ) -> UpcomingMaturitiesResponse:
     """Nearest maturity dates, from today onwards, for bonds held in the user's portfolio."""
     return await service.get_upcoming_maturities(session, telegram_id, limit)
+
+
+@router.get("/{telegram_id}/coupons", response_model=CouponPaymentsResponse)
+async def coupon_payments(
+    session: DbSession,
+    telegram_id: TelegramId,
+    date: Annotated[
+        datetime.date | None, Query(description="Payment date; defaults to today")
+    ] = None,
+) -> CouponPaymentsResponse:
+    """Coupons paid on the given date for the user's bonds, with the issuer disclosure status."""
+    return await service.get_coupon_payments(session, telegram_id, date)

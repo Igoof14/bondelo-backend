@@ -8,13 +8,20 @@ does own, `bot_users`, lives in `app/users/models.py`.
 import datetime
 from decimal import Decimal
 
-from sqlalchemy import BigInteger, Date, Numeric, String, Text
+from sqlalchemy import BigInteger, Date, Float, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
 from app.users.models import BotUser
 
-__all__ = ["BotUser", "MoexBond", "MoexBondOffer", "UserBond"]
+__all__ = [
+    "BotUser",
+    "DisclosurePayment",
+    "MoexBond",
+    "MoexBondCoupon",
+    "MoexBondOffer",
+    "UserBond",
+]
 
 
 class UserBond(Base):
@@ -54,3 +61,32 @@ class MoexBondOffer(Base):
     price: Mapped[Decimal | None] = mapped_column(Numeric)
     value: Mapped[Decimal | None] = mapped_column(Numeric)
     agent: Mapped[str | None] = mapped_column(Text)
+
+
+class MoexBondCoupon(Base):
+    __tablename__ = "moex_bonds_coupons"
+
+    secid: Mapped[str] = mapped_column(Text, primary_key=True)
+    coupondate: Mapped[datetime.date] = mapped_column(Date, primary_key=True)
+    startdate: Mapped[datetime.date | None] = mapped_column(Date)
+    value_rub: Mapped[Decimal | None] = mapped_column(Numeric)
+
+
+class DisclosurePayment(Base):
+    """A payment announcement scraped from the issuer's disclosure feed.
+
+    Owned by disclosure-parsing-worker. `payment_category` is a native postgres enum
+    (`payment_category_enum`) there; mapping it as text keeps the enum type out of this
+    service's metadata — queries compare it with an explicit cast.
+    """
+
+    __tablename__ = "disclosure_payments"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    isin: Mapped[str | None] = mapped_column(String(12))
+    payment_category: Mapped[str] = mapped_column(Text)
+    obligation_due_date: Mapped[datetime.date | None] = mapped_column(Date)
+    total_payment_amount: Mapped[float] = mapped_column(Float)
+    payment_per_security_value: Mapped[float | None] = mapped_column(Float)
+    event_url: Mapped[str | None] = mapped_column(Text)
+    event_date: Mapped[datetime.date | None] = mapped_column(Date)

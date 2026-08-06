@@ -59,3 +59,41 @@ class MaturityItem(BaseModel):
 class UpcomingMaturitiesResponse(BaseModel):
     telegram_id: int
     items: list[MaturityItem]
+
+
+class CouponInfo(BaseModel):
+    date: datetime.date
+    start_date: datetime.date | None = None
+    value_rub: Decimal | None = None
+
+
+class DisclosureInfo(BaseModel):
+    """What the issuer published about this payment. Amounts are floats in the source table."""
+
+    total_payment_amount: float
+    payment_per_security_value: float | None = None
+    event_url: str | None = None
+
+
+class NsdInfo(BaseModel):
+    """Whether the money reached NSD. Not collected yet — the defaults are a placeholder."""
+
+    is_paid: bool = False
+    url: str | None = None
+
+
+class CouponPaymentItem(BaseModel):
+    bond: BondInfo
+    coupon: CouponInfo
+    quantity: Decimal
+    total_value_rub: Decimal | None = None
+    is_disclosure: bool
+    disclosure: DisclosureInfo | None = None
+    nsd: NsdInfo
+    accounts: list[AccountPosition]
+
+
+class CouponPaymentsResponse(BaseModel):
+    telegram_id: int
+    date: datetime.date
+    items: list[CouponPaymentItem]

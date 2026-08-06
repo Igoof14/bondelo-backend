@@ -9,8 +9,13 @@ from app.portfolio import repository
 from app.portfolio.schemas import (
     AccountPosition,
     BondInfo,
+    CouponInfo,
+    CouponPaymentItem,
+    CouponPaymentsResponse,
+    DisclosureInfo,
     MaturityInfo,
     MaturityItem,
+    NsdInfo,
     OfferInfo,
     OfferItem,
     UpcomingMaturitiesResponse,
@@ -98,3 +103,48 @@ async def get_upcoming_maturities(
         for row in rows
     ]
     return UpcomingMaturitiesResponse(telegram_id=telegram_id, items=items)
+
+
+def _disclosure(row: Row[Any]) -> DisclosureInfo | None:
+    if row.disclosure_isin is None:
+        return None
+    return DisclosureInfo(
+        total_payment_amount=row.total_payment_amount,
+        payment_per_security_value=row.payment_per_security_value,
+        event_url=row.event_url,
+    )
+
+
+async def get_coupon_payments(
+    session: AsyncSession, telegram_id: int, on_date: datetime.date | None
+) -> CouponPaymentsResponse:
+    """Coupons paid on `on_date` for the bonds the user holds, with the disclosure status.
+
+    Same contract as offers: unknown telegram_id is a 404, no coupons that day is an
+    empty list.
+    """
+    bot_user_id = await _resolve_user(session, telegram_id)
+
+    on_date = on_date or datetime.date.today()
+    rows = await repository.get_coupon_payments(session, bot_user_id, on_date)
+
+    items = [
+        CouponPaymentItem(
+            bond=_bond(row),
+            coupon=CouponInfo(
+                date=row.coupondate,
+                start_date=row.startdate,
+                value_rub=row.value_rub,
+            ),
+            quantity=row.quantity,
+            total_value_rub=None if row.value_rub is None else row.value_rub * row.quantity,
+            is_disclosure=row.disclosure_isin is not None,
+            disclosure=_disclosure(row),
+            # NSD settlement data is not collected yet; the defaults are a placeholder so
+            # the response shape stays the same once it is.
+            nsd=NsdInfo(),
+            accounts=_accounts(row),
+        )
+        for row in rows
+    ]
+    return CouponPaymentsResponse(telegram_id=telegram_id, date=on_date, items=items)

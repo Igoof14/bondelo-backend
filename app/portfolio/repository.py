@@ -6,7 +6,17 @@ from sqlalchemy import CTE, Row, Select, Text, cast, func, select
 from sqlalchemy.dialects.postgresql import JSONB, aggregate_order_by
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.portfolio.models import BotUser, MoexBond, MoexBondOffer, UserBond
+from app.portfolio.models import (
+    BotUser,
+    DisclosurePayment,
+    MoexBond,
+    MoexBondCoupon,
+    MoexBondOffer,
+    UserBond,
+)
+
+# The disclosure feed splits payments by kind; only coupons matter here.
+COUPON_PAYMENT_CATEGORY = "coupon_income"
 
 # A cancelled offer is not an upcoming event, so it never belongs in a reminder.
 # MOEX encodes the state in offertype itself ("Оферта (отменено)").
@@ -96,6 +106,55 @@ def _upcoming_maturities_query(bot_user_id: int, limit: int, today: datetime.dat
     )
 
 
+def _coupon_disclosure_cte(on_date: datetime.date) -> CTE:
+    """The most recent coupon disclosure per ISIN for the given due date.
+
+    An issuer can publish several messages about the same payment (corrections,
+    re-publications); without DISTINCT ON the outer join would duplicate coupon rows.
+    """
+    return (
+        select(
+            DisclosurePayment.isin.label("isin"),
+            DisclosurePayment.total_payment_amount,
+            DisclosurePayment.payment_per_security_value,
+            DisclosurePayment.event_url,
+        )
+        .where(
+            cast(DisclosurePayment.payment_category, Text) == COUPON_PAYMENT_CATEGORY,
+            DisclosurePayment.obligation_due_date == on_date,
+            DisclosurePayment.isin.is_not(None),
+        )
+        .distinct(DisclosurePayment.isin)
+        .order_by(
+            DisclosurePayment.isin,
+            DisclosurePayment.event_date.desc().nullslast(),
+            DisclosurePayment.id.desc(),
+        )
+        .cte("coupon_disclosure")
+    )
+
+
+def _coupon_payments_query(bot_user_id: int, on_date: datetime.date) -> Select[Any]:
+    disclosure = _coupon_disclosure_cte(on_date)
+    return (
+        _held_bonds_query(bot_user_id)
+        .add_columns(
+            MoexBondCoupon.coupondate,
+            MoexBondCoupon.startdate,
+            MoexBondCoupon.value_rub,
+            # Presence of this column is what tells the service a disclosure exists.
+            disclosure.c.isin.label("disclosure_isin"),
+            disclosure.c.total_payment_amount,
+            disclosure.c.payment_per_security_value,
+            disclosure.c.event_url,
+        )
+        .join(MoexBondCoupon, MoexBondCoupon.secid == MoexBond.secid)
+        .outerjoin(disclosure, disclosure.c.isin == MoexBond.isin)
+        .where(MoexBondCoupon.coupondate == on_date)
+        .order_by(MoexBond.shortname, MoexBond.secid)
+    )
+
+
 async def get_upcoming_offers(
     session: AsyncSession, bot_user_id: int, limit: int, today: datetime.date
 ) -> Sequence[Row[Any]]:
@@ -107,4 +166,11 @@ async def get_upcoming_maturities(
     session: AsyncSession, bot_user_id: int, limit: int, today: datetime.date
 ) -> Sequence[Row[Any]]:
     result = await session.execute(_upcoming_maturities_query(bot_user_id, limit, today))
+    return result.all()
+
+
+async def get_coupon_payments(
+    session: AsyncSession, bot_user_id: int, on_date: datetime.date
+) -> Sequence[Row[Any]]:
+    result = await session.execute(_coupon_payments_query(bot_user_id, on_date))
     return result.all()
